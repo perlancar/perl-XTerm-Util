@@ -50,12 +50,17 @@ echo $result >}.$fname2;
 }
 
 sub set_term_bgcolor {
-    my $rgb = shift;
+    my ($rgb, $stderr) = @_;
     $rgb =~ s/\A#?([0-9A-Fa-f]{6})\z/$1/
         or die "Invalid RGB code '$rgb'";
 
     local $| = 1;
-    print "\e]11;#$rgb\a";
+    my $str = "\e]11;#$rgb\a";
+    if ($stderr) {
+        print STDERR $str;
+    } else {
+        print $str;
+    }
 }
 
 1;
@@ -126,10 +131,10 @@ sequance to set background color of text.
 
 Usage:
 
- set_term_bgcolor("000000");
+ set_term_bgcolor($rgb [, $stderr ]);
 
 Set terminal background color. This prints the following xterm control sequence
-to STDOUT:
+to STDOUT (or STDERR, if C<$stderr> is set to true):
 
  \e]11;#123456\a
 
