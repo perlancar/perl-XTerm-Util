@@ -16,6 +16,24 @@ our @EXPORT_OK = qw(
 
 our %SPEC;
 
+our %args_get = (
+    query_terminal => {
+        schema => 'bool*',
+        default => 1,
+    },
+    read_colorfgbg => {
+        schema => 'bool*',
+        default => 1,
+    },
+);
+
+our %argopt_quiet = (
+    quiet => {
+        schema => 'bool*',
+        cmdline_aliases => {q=>{}},
+    },
+);
+
 $SPEC{get_term_bgcolor} = {
     v => 1.1,
     summary => 'Get terminal background color',
@@ -54,14 +72,7 @@ And does not work with the following terminal software (and version) on Linux:
 
 _
     args => {
-        query_terminal => {
-            schema => 'bool*',
-            default => 1,
-        },
-        read_colorfgbg => {
-            schema => 'bool*',
-            default => 1,
-        },
+        %args_get,
     },
     result_naked => 1,
 };
@@ -117,6 +128,80 @@ echo $result >}.$fname2;
 
   DONE:
     $rgb;
+}
+
+$SPEC{term_bgcolor_is_dark} = {
+    v => 1.1,
+    summary => 'Check if terminal background color is dark',
+    description => <<'_',
+
+This is basically get_term_bgcolor + rgb_is_dark.
+
+_
+    args => {
+        %args_get,
+        %argopt_quiet,
+    },
+};
+sub term_bgcolor_is_dark {
+    require Color::RGB::Util;
+
+    my %args = @_;
+
+    my $rgb = get_term_bgcolor(%args);
+
+    my $res_code = !defined($rgb) ? undef :
+        Color::RGB::Util::rgb_is_dark($rgb) ? 0:1;
+    my $res_text =
+        !defined($res_code) ? "Can't get terminal background color" :
+        $res_code == 1 ? "Terminal background color '$rgb' is NOT dark" :
+        "Terminal background color '$rgb' is dark";
+    [
+        200,
+        "OK",
+        $res_code,
+        {
+            'cmdline.result' => $args{quiet} ? "" : $res_text,
+            'cmdline.exit_code' => $res_code // 2,
+        },
+    ];
+}
+
+$SPEC{term_bgcolor_is_light} = {
+    v => 1.1,
+    summary => 'Check if terminal background color is light',
+    description => <<'_',
+
+This is basically get_term_bgcolor + rgb_is_light.
+
+_
+    args => {
+        %args_get,
+        %argopt_quiet,
+    },
+};
+sub term_bgcolor_is_light {
+    require Color::RGB::Util;
+
+    my %args = @_;
+
+    my $rgb = get_term_bgcolor(%args);
+
+    my $res_code = !defined($rgb) ? undef :
+        Color::RGB::Util::rgb_is_light($rgb) ? 0:1;
+    my $res_text =
+        !defined($res_code) ? "Can't get terminal background color" :
+        $res_code == 1 ? "Terminal background color '$rgb' is NOT light" :
+        "Terminal background color '$rgb' is light";
+    [
+        200,
+        "OK",
+        $res_code,
+        {
+            'cmdline.result' => $args{quiet} ? "" : $res_text,
+            'cmdline.exit_code' => $res_code // 2,
+        },
+    ];
 }
 
 $SPEC{set_term_bgcolor} = {
