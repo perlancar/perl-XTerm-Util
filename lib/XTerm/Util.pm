@@ -21,8 +21,13 @@ $SPEC{get_term_bgcolor} = {
     summary => 'Get terminal background color',
     description => <<'_',
 
-Get the terminal's current background color, or undef if unavailable. This uses
-the following xterm control sequence:
+Get the terminal's current background color (in 6-hexdigit format e.g. 000000 or
+ffff33), or undef if unavailable. This routine tries the following mechanisms,
+from most useful to least useful, in order. Each mechanism can be turned off via
+argument.
+
+*query_terminal*. Querying the terminal is done via sending the following xterm
+ control sequence:
 
     \e]11;?\a
 
@@ -31,8 +36,8 @@ question mark replaced by the RGB code, e.g.:
 
     \e]11;rgb:0000/0000/0000\a
 
-I have tested this works on the following terminal software (and version) on
-Linux:
+I have tested that this works on the following terminal software (and version)
+on Linux:
 
     MATE Terminal (1.18.2)
     GNOME Terminal (3.18.3)
@@ -43,23 +48,38 @@ And does not work with the following terminal software (and version) on Linux:
     LXTerminal (0.2.0)
     rxvt (2.7.10)
 
-A 6-hexdigit RGB value will be returned, e.g.:
-
-    000000
-    310035
+*read_colorfgbg*. Some terminals like Konsole set the environment variable
+`COLORFGBG` containing 16-color color code for foreground and background, e.g.:
+`15;0`.
 
 _
-    args => {},
+    args => {
+        query_terminal => {
+            schema => 'bool*',
+            default => 1,
+        },
+        read_colorfgbg => {
+            schema => 'bool*',
+            default => 1,
+        },
+    },
     result_naked => 1,
 };
 sub get_term_bgcolor {
-    return undef unless -x "/bin/sh";
+    my %args = @_;
 
-    require File::Temp;
-    my ($fh1 , $fname1) = File::Temp::tempfile();
-    my (undef, $fname2) = File::Temp::tempfile();
+    my $rgb;
 
-    my $script = q{#!/bin/sh
+  QUERY_TERMINAL: {
+        last unless $args{query_terminal} // 1;
+
+        last unless -x "/bin/sh";
+
+        require File::Temp;
+        my ($fh1 , $fname1) = File::Temp::tempfile();
+        my (undef, $fname2) = File::Temp::tempfile();
+
+        my $script = q{#!/bin/sh
 oldstty=$(stty -g)
 stty raw -echo min 0 time 0
 printf "\033]11;?\a"
@@ -69,21 +89,33 @@ result=${answer#*;}
 stty $oldstty
 echo $result >}.$fname2;
 
-    print $fh1 $script;
-    close $fh1;
-    system {"/bin/sh"} "/bin/sh", $fname1;
+        print $fh1 $script;
+        close $fh1;
+        system {"/bin/sh"} "/bin/sh", $fname1;
 
-    my $out = do {
-        local $/;
-        open my $fh2, "<", $fname2;
-        scalar <$fh2>;
-    };
+        my $out = do {
+            local $/;
+            open my $fh2, "<", $fname2;
+            scalar <$fh2>;
+        };
 
-    my $rgb;
-    if ($out =~ m!rgb:([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})\a!) {
-        $rgb = substr($1, 0, 2) . substr($2, 0, 2) . substr($3, 0, 2);
-    }
-    unlink $fname1, $fname2;
+        unlink $fname1, $fname2;
+
+        if ($out =~ m!rgb:([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})\a!) {
+            $rgb = substr($1, 0, 2) . substr($2, 0, 2) . substr($3, 0, 2);
+            goto DONE;
+        }
+    } # QUERY_TERMINAL
+
+  READ_COLORFGBG: {
+        last unless $ENV{COLORFGBG};
+        last unless $ENV{COLORFGBG} =~ /\A[0-1][0-9]?;([0-1][0-9]?)\z/;
+        require Color::ANSI::Util;
+        $rgb = Color::ANSI::Util::ansi16_to_rgb($1);
+        goto DONE;
+    } # READ_COLORFGBG
+
+  DONE:
     $rgb;
 }
 
