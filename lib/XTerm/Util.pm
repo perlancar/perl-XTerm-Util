@@ -272,6 +272,11 @@ sub set_term_bgcolor {
 Keywords: xterm, xterm-256color, terminal
 
 
+=head1 ENVIRONMENT
+
+=head2 COLORFGBG
+
+
 =head1 SEE ALSO
 
 L<Color::ANSI::Util>
