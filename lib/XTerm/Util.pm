@@ -49,8 +49,8 @@ argument.
 
     \e]11;?\a
 
-and a compatible terminal will issue back the same sequence but with the
-question mark replaced by the RGB code, e.g.:
+(or \e]11;?\017). A compatible terminal will issue back the same sequence but
+with the question mark replaced by the RGB code, e.g.:
 
     \e]11;rgb:0000/0000/0000\a
 
@@ -60,6 +60,7 @@ on Linux:
     MATE Terminal (1.18.2)
     GNOME Terminal (3.18.3)
     Konsole (16.04.3)
+    XTerm (330)
 
 And does not work with the following terminal software (and version) on Linux:
 
@@ -272,6 +273,12 @@ sub set_term_bgcolor {
 Keywords: xterm, xterm-256color, terminal
 
 
+=head1 NOTES
+
+Konsole does not support \e]10;?\a (querying VT100 text foreground color), but
+xterm does.
+
+
 =head1 ENVIRONMENT
 
 =head2 COLORFGBG
@@ -282,6 +289,7 @@ Keywords: xterm, xterm-256color, terminal
 L<Color::ANSI::Util>
 
 XTerm control sequence:
-L<http://invisible-island.net/xterm/ctlseqs/ctlseqs.html>.
+L<http://invisible-island.net/xterm/ctlseqs/ctlseqs.html>, or
+L<http://www.xfree86.org/4.7.0/ctlseqs.html>
 
 =cut
