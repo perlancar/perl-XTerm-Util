@@ -34,53 +34,12 @@ our %argopt_quiet = (
     },
 );
 
-$SPEC{get_term_bgcolor} = {
-    v => 1.1,
-    summary => 'Get terminal background color',
-    description => <<'_',
-
-Get the terminal's current background color (in 6-hexdigit format e.g. 000000 or
-ffff33), or undef if unavailable. This routine tries the following mechanisms,
-from most useful to least useful, in order. Each mechanism can be turned off via
-argument.
-
-*query_terminal*. Querying the terminal is done via sending the following xterm
- control sequence:
-
-    \e]11;?\a
-
-(or \e]11;?\017). A compatible terminal will issue back the same sequence but
-with the question mark replaced by the RGB code, e.g.:
-
-    \e]11;rgb:0000/0000/0000\a
-
-I have tested that this works on the following terminal software (and version)
-on Linux:
-
-    MATE Terminal (1.18.2)
-    GNOME Terminal (3.18.3)
-    Konsole (16.04.3)
-    XTerm (330)
-
-And does not work with the following terminal software (and version) on Linux:
-
-    LXTerminal (0.2.0)
-    rxvt (2.7.10)
-
-*read_colorfgbg*. Some terminals like Konsole set the environment variable
-`COLORFGBG` containing 16-color color code for foreground and background, e.g.:
-`15;0`.
-
-_
-    args => {
-        %args_get,
-    },
-    result_naked => 1,
-};
-sub get_term_bgcolor {
-    my %args = @_;
+sub _get_term_fgcolor_or_bgcolor {
+    my ($which, %args) = @_;
 
     my $rgb;
+
+    my $code = $which eq 'bgcolor' ? 11 : 10;
 
   QUERY_TERMINAL: {
         last unless $args{query_terminal} // 1;
@@ -94,7 +53,7 @@ sub get_term_bgcolor {
         my $script = q{#!/bin/sh
 oldstty=$(stty -g)
 stty raw -echo min 0 time 0
-printf "\033]11;?\a"
+printf "\033]}.$code.q{;?\a"
 sleep 0.00000001
 read -r answer
 result=${answer#*;}
@@ -121,14 +80,200 @@ echo $result >}.$fname2;
 
   READ_COLORFGBG: {
         last unless $ENV{COLORFGBG};
-        last unless $ENV{COLORFGBG} =~ /\A[0-1][0-9]?;([0-1][0-9]?)\z/;
+        last unless $ENV{COLORFGBG} =~ /\A([0-1][0-9]?);([0-1][0-9]?)\z/;
         require Color::ANSI::Util;
-        $rgb = Color::ANSI::Util::ansi16_to_rgb($1);
+        $rgb = Color::ANSI::Util::ansi16_to_rgb($which eq 'bgcolor' ? $2 : $1);
         goto DONE;
     } # READ_COLORFGBG
 
   DONE:
     $rgb;
+}
+
+
+sub _set_term_fgcolor_or_bgcolor {
+    my ($which, $rgb, $stderr) = @_;
+    $rgb =~ s/\A#?([0-9A-Fa-f]{6})\z/$1/
+        or die "Invalid RGB code '$rgb'";
+
+    my $code = $which eq 'bgcolor' ? 11 : 10;
+
+    local $| = 1;
+    my $str = "\e]$code;#$rgb\a";
+    if ($stderr) {
+        print STDERR $str;
+    } else {
+        print $str;
+    }
+    return;
+}
+
+$SPEC{get_term_fgcolor} = {
+    v => 1.1,
+    summary => 'Get terminal text (foreground) color',
+    description => <<'_',
+
+Get the terminal's current text (foreground) color (in 6-hexdigit format e.g.
+000000 or ffff33), or undef if unavailable. This routine tries the following
+mechanisms, from most useful to least useful, in order. Each mechanism can be
+turned off via argument.
+
+*query_terminal*. Querying the terminal is done via sending the following xterm
+ control sequence:
+
+    \e]10;?\a
+
+(or \e]10;?\017). A compatible terminal will issue back the same sequence but
+with the question mark replaced by the RGB code, e.g.:
+
+    \e]10;rgb:0000/0000/0000\a
+
+I have tested that this works on the following terminal software (and version)
+on Linux:
+
+    MATE Terminal (1.20.2)
+    GNOME Terminal (3.23.1)
+    XTerm (330)
+
+And does not work with the following terminal software (and version) on Linux:
+
+    Konsole (18.12.3)    (but getting terminal background color works)
+    LXTerminal (0.2.0)
+    rxvt (2.7.10)
+
+*read_colorfgbg*. Some terminals like Konsole set the environment variable
+`COLORFGBG` containing 16-color color code for foreground and background, e.g.:
+`15;0`.
+
+_
+    args => {
+        %args_get,
+    },
+    result_naked => 1,
+};
+sub get_term_fgcolor {
+    _get_term_fgcolor_or_bgcolor('fgcolor', @_);
+}
+
+$SPEC{get_term_bgcolor} = {
+    v => 1.1,
+    summary => 'Get terminal background color',
+    description => <<'_',
+
+Get the terminal's current background color (in 6-hexdigit format e.g. 000000 or
+ffff33), or undef if unavailable. This routine tries the following mechanisms,
+from most useful to least useful, in order. Each mechanism can be turned off via
+argument.
+
+*query_terminal*. Querying the terminal is done via sending the following xterm
+ control sequence:
+
+    \e]11;?\a
+
+(or \e]11;?\017). A compatible terminal will issue back the same sequence but
+with the question mark replaced by the RGB code, e.g.:
+
+    \e]11;rgb:0000/0000/0000\a
+
+I have tested that this works on the following terminal software (and version)
+on Linux:
+
+    MATE Terminal (1.20.2)
+    GNOME Terminal (3.23.)
+    Konsole (18.12.3)
+    XTerm (330)
+
+And does not work with the following terminal software (and version) on Linux:
+
+    LXTerminal (0.2.0)
+    rxvt (2.7.10)
+
+*read_colorfgbg*. Some terminals like Konsole set the environment variable
+`COLORFGBG` containing 16-color color code for foreground and background, e.g.:
+`15;0`.
+
+_
+    args => {
+        %args_get,
+    },
+    result_naked => 1,
+};
+sub get_term_bgcolor {
+    _get_term_fgcolor_or_bgcolor('bgcolor', @_);
+}
+
+$SPEC{term_fgcolor_is_dark} = {
+    v => 1.1,
+    summary => 'Check if terminal text (foreground) color is dark',
+    description => <<'_',
+
+This is basically get_term_fgcolor + rgb_is_dark.
+
+_
+    args => {
+        %args_get,
+        %argopt_quiet,
+    },
+};
+sub term_fgcolor_is_dark {
+    require Color::RGB::Util;
+
+    my %args = @_;
+
+    my $rgb = get_term_fgcolor(%args);
+
+    my $res_code = !defined($rgb) ? undef :
+        Color::RGB::Util::rgb_is_dark($rgb) ? 0:1;
+    my $res_text =
+        !defined($res_code) ? "Can't get terminal foreground color" :
+        $res_code == 1 ? "Terminal foreground color '$rgb' is NOT dark" :
+        "Terminal foreground color '$rgb' is dark";
+    [
+        200,
+        "OK",
+        $res_code,
+        {
+            'cmdline.result' => $args{quiet} ? "" : $res_text,
+            'cmdline.exit_code' => $res_code // 2,
+        },
+    ];
+}
+
+$SPEC{term_fgcolor_is_light} = {
+    v => 1.1,
+    summary => 'Check if terminal text (foreground) color is light',
+    description => <<'_',
+
+This is basically get_term_fgcolor + rgb_is_light.
+
+_
+    args => {
+        %args_get,
+        %argopt_quiet,
+    },
+};
+sub term_fgcolor_is_light {
+    require Color::RGB::Util;
+
+    my %args = @_;
+
+    my $rgb = get_term_fgcolor(%args);
+
+    my $res_code = !defined($rgb) ? undef :
+        Color::RGB::Util::rgb_is_light($rgb) ? 0:1;
+    my $res_text =
+        !defined($res_code) ? "Can't get terminal foreground color" :
+        $res_code == 1 ? "Terminal foreground color '$rgb' is NOT light" :
+        "Terminal foreground color '$rgb' is light";
+    [
+        200,
+        "OK",
+        $res_code,
+        {
+            'cmdline.result' => $args{quiet} ? "" : $res_text,
+            'cmdline.exit_code' => $res_code // 2,
+        },
+    ];
 }
 
 $SPEC{term_bgcolor_is_dark} = {
@@ -205,13 +350,45 @@ sub term_bgcolor_is_light {
     ];
 }
 
+$SPEC{set_term_fgcolor} = {
+    v => 1.1,
+    summary => 'Set terminal background color',
+    description => <<'_',
+
+Set terminal background color. This prints the following xterm control sequence
+to STDOUT (or STDERR, if ~stderr~ is set to true):
+
+    \e]11;#123456\a
+
+where *123456* is the 6-hexdigit RGB color code.
+
+_
+    args_as => 'array',
+    args => {
+        rgb => {
+            schema => 'color::rgb24*',
+            req => 1,
+            pos => 0,
+        },
+        stderr => {
+            schema => 'true*',
+            pos => 1,
+        },
+
+    },
+    result_naked => 1,
+};
+sub set_term_fgcolor {
+    _set_term_fgcolor_or_bgcolor('fgcolor', @_);
+}
+
 $SPEC{set_term_bgcolor} = {
     v => 1.1,
     summary => 'Set terminal background color',
     description => <<'_',
 
 Set terminal background color. This prints the following xterm control sequence
-to STDOUT (or STDERR, if ~stderr~ is set to true:
+to STDOUT (or STDERR, if ~stderr~ is set to true):
 
     \e]11;#123456\a
 
@@ -234,18 +411,7 @@ _
     result_naked => 1,
 };
 sub set_term_bgcolor {
-    my ($rgb, $stderr) = @_;
-    $rgb =~ s/\A#?([0-9A-Fa-f]{6})\z/$1/
-        or die "Invalid RGB code '$rgb'";
-
-    local $| = 1;
-    my $str = "\e]11;#$rgb\a";
-    if ($stderr) {
-        print STDERR $str;
-    } else {
-        print $str;
-    }
-    return;
+    _set_term_fgcolor_or_bgcolor('bgcolor', @_);
 }
 
 1;
@@ -254,8 +420,14 @@ sub set_term_bgcolor {
 =head1 SYNOPSIS
 
  use XTerm::Util qw(
+     get_term_fgcolor
      get_term_bgcolor
+     set_term_fgcolor
      set_term_bgcolor
+     term_fgcolor_is_dark
+     term_fgcolor_is_light
+     term_bgcolor_is_dark
+     term_bgcolor_is_light
  );
 
  # when you're on a black background
@@ -271,12 +443,6 @@ sub set_term_bgcolor {
 =head1 DESCRIPTION
 
 Keywords: xterm, xterm-256color, terminal
-
-
-=head1 NOTES
-
-Konsole does not support \e]10;?\a (querying VT100 text foreground color), but
-xterm does.
 
 
 =head1 ENVIRONMENT
