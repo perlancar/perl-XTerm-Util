@@ -72,7 +72,7 @@ echo $result >}.$fname2;
 
         unlink $fname1, $fname2;
 
-        if ($out =~ m!rgb:([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})\a!) {
+        if ($out =~ m!rgb:([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})/([0-9A-Fa-f]{4})\a?!) {
             $rgb = substr($1, 0, 2) . substr($2, 0, 2) . substr($3, 0, 2);
             goto DONE;
         }
@@ -128,19 +128,6 @@ with the question mark replaced by the RGB code, e.g.:
 
     \e]10;rgb:0000/0000/0000\a
 
-I have tested that this works on the following terminal software (and version)
-on Linux:
-
-    MATE Terminal (1.20.2)
-    GNOME Terminal (3.23.1)
-    XTerm (330)
-
-And does not work with the following terminal software (and version) on Linux:
-
-    Konsole (18.12.3)    (but getting terminal background color works)
-    LXTerminal (0.2.0)
-    rxvt (2.7.10)
-
 *read_colorfgbg*. Some terminals like Konsole set the environment variable
 `COLORFGBG` containing 16-color color code for foreground and background, e.g.:
 `15;0`.
@@ -174,19 +161,6 @@ argument.
 with the question mark replaced by the RGB code, e.g.:
 
     \e]11;rgb:0000/0000/0000\a
-
-I have tested that this works on the following terminal software (and version)
-on Linux:
-
-    MATE Terminal (1.20.2)
-    GNOME Terminal (3.23.)
-    Konsole (18.12.3)
-    XTerm (330)
-
-And does not work with the following terminal software (and version) on Linux:
-
-    LXTerminal (0.2.0)
-    rxvt (2.7.10)
 
 *read_colorfgbg*. Some terminals like Konsole set the environment variable
 `COLORFGBG` containing 16-color color code for foreground and background, e.g.:
@@ -443,6 +417,28 @@ sub set_term_bgcolor {
 =head1 DESCRIPTION
 
 Keywords: xterm, xterm-256color, terminal
+
+
+=head1 COMPATIBILITY NOTES
+
+Versions of software tested:
+
+    MATE Terminal (1.20.2)
+    GNOME Terminal (3.23.)
+    Konsole (18.12.3)
+    XTerm (330)
+    LXTerminal (0.2.0)
+    rxvt (2.7.10)
+
+ |                                   | mate  | gnome | konsole | xterm | lxterm | rxvt |
+ |-----------------------------------+-------+-------+---------+-------+--------+------|
+ | Getting terminal background color | no 1) | no 1) | yes     | yes   | no     | no   |
+ | Getting terminal foreground color | no 1) | no 1) | no 2)   | yes   | no     | no   |
+ | Setting terminal background color | yes   | yes   | yes     | yes   | no     | no   |
+ | Setting terminal foreground color | yes   | yes   | yes     | yes   | no     | no   |
+
+ 1) cannot be captured
+ 2) terminal does not respond back
 
 
 =head1 ENVIRONMENT
